@@ -12,7 +12,18 @@ import typing
 
 def pandas_q1(time: str, lineitem:pd.DataFrame) -> float:
     # TODO: your codes begin
-    return -1
+    time = pd.to_datetime(time, format='%Y-%m-%d')
+    if isinstance(lineitem['l_shipdate'].iloc[0], str):
+        lineitem['l_shipdate'] = pd.to_datetime(lineitem['l_shipdate'])
+    filtered_lineitem = lineitem[
+        (lineitem['l_shipdate'] >= time) &
+        (lineitem['l_shipdate'] < time + pd.offsets.DateOffset(years=1)) &
+        (lineitem['l_discount'].between(.06 - 0.01, .06 + 0.010001)) &
+        (lineitem['l_quantity'] < 24)
+    ]
+    filtered_lineitem['revenue_increase'] = filtered_lineitem['l_extendedprice'] * filtered_lineitem['l_discount']
+    total_revenue = filtered_lineitem['revenue_increase'].sum()
+    return total_revenue
     # end of your codes
 
 
