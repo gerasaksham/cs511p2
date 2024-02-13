@@ -22,8 +22,7 @@ def pandas_q1(time: str, lineitem:pd.DataFrame) -> float:
         (lineitem['l_quantity'] < 24)
     ]
     filtered_lineitem['revenue_increase'] = filtered_lineitem['l_extendedprice'] * filtered_lineitem['l_discount']
-    total_revenue = filtered_lineitem['revenue_increase'].sum()
-    return total_revenue
+    return filtered_lineitem['revenue_increase'].sum()
     # end of your codes
 
 
