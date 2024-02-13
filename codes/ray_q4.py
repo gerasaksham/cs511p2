@@ -6,16 +6,47 @@
  	 Description:
 """
 import tempfile
-
 import pandas as pd
 import ray
 import typing
 import util.judge_df_equal
 
 
+@ray.remote
+def calculate_filtered_data(data:pd.DataFrame):
+    grouped_data = data.groupby(['o_orderpriority', 'o_orderkey']).first().reset_index()
+    filtered_data = grouped_data[grouped_data['l_commitdate'] < grouped_data['l_receiptdate']]
+    return filtered_data
+
 def ray_q4(time: str, orders: pd.DataFrame, lineitem: pd.DataFrame) -> pd.DataFrame:
     #TODO: your codes begin
-    return pd.DataFrame()
+    
+    time = pd.to_datetime(time)
+    if isinstance(orders['o_orderdate'].iloc[0], str):
+        orders['o_orderdate'] = pd.to_datetime(orders['o_orderdate'])
+    filtered_orders = orders[
+        (orders['o_orderdate'] >= time) &
+        (orders['o_orderdate'] < time + pd.DateOffset(months=3))
+    ]
+
+    filtered_data = pd.merge(filtered_orders, lineitem, how='inner', left_on='o_orderkey', right_on='l_orderkey')
+
+    num_chunks = 4
+    chunk_size = len(filtered_data) // num_chunks
+    chunks = [filtered_data[i*chunk_size:(i+1)*chunk_size] for i in range(num_chunks)]
+    chunks.append(filtered_data[num_chunks*chunk_size:])  # Include any remaining rows in the last chunk
+
+    ray.init()
+
+    chunk_ids = [ray.put(chunk) for chunk in chunks]
+    tasks = [calculate_filtered_data.remote(chunk_id) for chunk_id in chunk_ids]
+
+
+    priority_orders = ray.get(tasks)
+    priority_orders = pd.concat(priority_orders, ignore_index=True).groupby('o_orderpriority').size().reset_index(name='order_count')
+    priority_orders_sorted = priority_orders.sort_values(by='o_orderpriority')
+    ray.shutdown()
+    return priority_orders_sorted
     #end of your codes
 
 

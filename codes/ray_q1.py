@@ -11,10 +11,34 @@ import typing
 import numpy as np
 
 
-def ray_q1(time: str, lineitem:pd.DataFrame) -> float:
-    # TODO: your codes begin
-    return -1
-    # end of your codes
+@ray.remote
+def calculate_revenue(chunk: pd.DataFrame) -> float:
+    filtered_chunk = chunk[
+        (chunk['l_shipdate'] >= pd.to_datetime('1994-01-01')) &
+        (chunk['l_shipdate'] < pd.to_datetime('1994-01-01') + pd.DateOffset(years=1)) &
+        (chunk['l_discount'].between(0.06 - 0.01, 0.06 + 0.010001)) &
+        (chunk['l_quantity'] < 24)
+    ]
+    revenue = (filtered_chunk['l_extendedprice'] * filtered_chunk['l_discount']).sum()
+    return revenue
+
+def ray_q1(time: str, lineitem: pd.DataFrame) -> float:
+    if isinstance(lineitem['l_shipdate'].iloc[0], str):
+        lineitem['l_shipdate'] = pd.to_datetime(lineitem['l_shipdate'])
+    num_chunks = 4
+    chunk_size = len(lineitem) // num_chunks
+    chunks = [lineitem[i*chunk_size:(i+1)*chunk_size] for i in range(num_chunks)]
+    chunks.append(lineitem[num_chunks*chunk_size:])  # Include any remaining rows in the last chunk
+    
+    ray.init()
+    
+    chunk_ids = [ray.put(chunk) for chunk in chunks]
+    actor_results = [calculate_revenue.remote(chunk_id) for chunk_id in chunk_ids]
+    total_revenue = sum(ray.get(actor_results))
+    
+    ray.shutdown()
+    
+    return total_revenue
 
 
 

@@ -10,15 +10,32 @@ import tempfile
 import pandas as pd
 import ray
 import typing
-
 import util.judge_df_equal
 
 
 def pandas_q3(segment: str, customer: pd.DataFrame, orders: pd.DataFrame, lineitem: pd.DataFrame) -> pd.DataFrame:
     #TODO: your codes begin
-    return pd.DataFrame()
+    orders['o_orderdate'] = pd.to_datetime(orders['o_orderdate'])
+    lineitem['l_shipdate'] = pd.to_datetime(lineitem['l_shipdate'])
+    filtered_customer = customer[customer['c_mktsegment'] == segment]
+    merge_orders = pd.merge(filtered_customer, orders, how='inner', left_on='c_custkey', right_on='o_custkey')
+    merge_lineitem = pd.merge(merge_orders, lineitem, how='inner', left_on='o_orderkey', right_on = 'l_orderkey')
+    
+    filtered_lineitem = merge_lineitem[
+        (merge_lineitem['o_orderdate'] < pd.to_datetime('1995-03-15')) &
+        (merge_lineitem['l_shipdate'] > pd.to_datetime('1995-03-15'))
+    ]
+    
+    filtered_lineitem['revenue'] = filtered_lineitem['l_extendedprice'] * (1 - filtered_lineitem['l_discount'])
+    
+    grouped_data = filtered_lineitem.groupby(['l_orderkey', 'o_orderdate', 'o_shippriority']).agg(
+        revenue=('revenue', 'sum')
+    ).reset_index()
+    
+    sorted_data = grouped_data.sort_values(by=['revenue', 'o_orderdate'], ascending=[False, True]).head(10)
+    
+    return sorted_data
     #end of your codes
-
 
 
 if __name__ == "__main__":

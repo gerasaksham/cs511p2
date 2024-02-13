@@ -14,9 +14,23 @@ import tempfile
 
 def pandas_q2(timediff:int, lineitem:pd.DataFrame) -> pd.DataFrame:
     #TODO: your codes begin
-    return pd.DataFrame()
-    #end of your codes
+    cutoff_date = pd.to_datetime('1998-12-01') - pd.Timedelta(days=timediff)
+    if isinstance(lineitem['l_shipdate'].iloc[0], str):
+        lineitem['l_shipdate'] = pd.to_datetime(lineitem['l_shipdate'])
+    filtered_lineitem = lineitem[lineitem['l_shipdate'] <= cutoff_date]
+    group_data = filtered_lineitem.groupby(['l_returnflag', 'l_linestatus']).agg(
+        sum_qty=('l_quantity', 'sum'),
+        sum_base_price=('l_extendedprice', 'sum'),
+        sum_disc_price=('l_extendedprice', lambda x: (x * (1 - lineitem['l_discount'])).sum()),
+        sum_charge=('l_extendedprice', lambda x: (x * (1 - lineitem['l_discount']) * (1 + lineitem['l_tax'])).sum()),
+        avg_qty=('l_quantity', 'mean'),
+        avg_price=('l_extendedprice', 'mean'),
+        avg_disc=('l_discount', 'mean'),
+        count_order=('l_orderkey', 'count')
+    ).reset_index()
 
+    return group_data.sort_values(by=['l_returnflag', 'l_linestatus'])
+    #end of your codes
 
 
 if __name__ == "__main__":

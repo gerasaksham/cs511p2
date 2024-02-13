@@ -6,16 +6,47 @@
  	 Description:
 """
 import pandas as pd
+import numpy as np
 import ray
 import typing
 import util.judge_df_equal
 import tempfile
 
 
+@ray.remote
+def calculate_chunks(chunk):
+    return chunk.groupby(['l_returnflag', 'l_linestatus']).agg(
+        sum_qty=('l_quantity', 'sum'),
+        sum_base_price=('l_extendedprice', 'sum'),
+        sum_disc_price=('l_extendedprice', lambda x: (x * (1 - chunk['l_discount'])).sum()),
+        sum_charge=('l_extendedprice', lambda x: (x * (1 - chunk['l_discount']) * (1 + chunk['l_tax'])).sum()),
+        avg_disc=('l_discount', 'mean'),
+        count_order=('l_quantity', 'count')
+    ).reset_index()
+
 def ray_q2(timediff:int, lineitem:pd.DataFrame) -> pd.DataFrame:
     #TODO: your codes begin
-    return pd.DataFrame()
-    #end of your codes
+    ray.init()
+    cutoff_date = pd.to_datetime("1998-12-01") - pd.DateOffset(days=timediff)
+    filtered_lineitem = lineitem[pd.to_datetime(lineitem['l_shipdate']) <= cutoff_date]
+    chunks = np.array_split(filtered_lineitem, 4)
+    futures = [calculate_chunks.remote(chunk) for chunk in chunks]
+    filtered_data = pd.concat(ray.get(futures))
+    grouped_data = filtered_data.groupby(['l_returnflag', 'l_linestatus']).agg(
+        sum_qty=('sum_qty', 'sum'),
+        sum_base_price=('sum_base_price', 'sum'),
+        sum_disc_price=('sum_disc_price', 'sum'),
+        sum_charge=('sum_charge', 'sum'),
+        avg_disc=('avg_disc', 'mean'),
+        count_order=('count_order', 'sum')
+    ).reset_index()
+    grouped_data['avg_qty'] = grouped_data['sum_qty'] / grouped_data['count_order']
+    grouped_data['avg_price'] = grouped_data['sum_base_price'] / grouped_data['count_order']
+    columns_order = ['l_returnflag', 'l_linestatus', 'sum_qty', 'sum_base_price', 'sum_disc_price',
+                           'sum_charge', 'avg_qty', 'avg_price', 'avg_disc', 'count_order']
+    sorted_data = grouped_data[columns_order].sort_values(by=['l_returnflag', 'l_linestatus'])
+    ray.shutdown()
+    return sorted_data
 
 
 
