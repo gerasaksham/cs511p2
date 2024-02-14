@@ -26,7 +26,6 @@ def calculate_chunks(chunk):
 
 def ray_q2(timediff:int, lineitem:pd.DataFrame) -> pd.DataFrame:
     #TODO: your codes begin
-    ray.init()
     cutoff_date = pd.to_datetime("1998-12-01") - pd.DateOffset(days=timediff)
     filtered_lineitem = lineitem[pd.to_datetime(lineitem['l_shipdate']) <= cutoff_date]
     chunks = np.array_split(filtered_lineitem, 4)
@@ -45,7 +44,6 @@ def ray_q2(timediff:int, lineitem:pd.DataFrame) -> pd.DataFrame:
     columns_order = ['l_returnflag', 'l_linestatus', 'sum_qty', 'sum_base_price', 'sum_disc_price',
                            'sum_charge', 'avg_qty', 'avg_price', 'avg_disc', 'count_order']
     sorted_data = grouped_data[columns_order].sort_values(by=['l_returnflag', 'l_linestatus'])
-    ray.shutdown()
     return sorted_data
 
 

@@ -36,8 +36,6 @@ def ray_q1(time: str, lineitem: pd.DataFrame) -> float:
     actor_results = [calculate_revenue.remote(chunk_id) for chunk_id in chunk_ids]
     total_revenue = sum(ray.get(actor_results))
     
-    ray.shutdown()
-    
     return total_revenue
 
 

@@ -34,10 +34,7 @@ def ray_q4(time: str, orders: pd.DataFrame, lineitem: pd.DataFrame) -> pd.DataFr
     num_chunks = 4
     chunk_size = len(filtered_data) // num_chunks
     chunks = [filtered_data[i*chunk_size:(i+1)*chunk_size] for i in range(num_chunks)]
-    chunks.append(filtered_data[num_chunks*chunk_size:])  # Include any remaining rows in the last chunk
-
-    ray.init()
-
+    chunks.append(filtered_data[num_chunks*chunk_size:])
     chunk_ids = [ray.put(chunk) for chunk in chunks]
     tasks = [calculate_filtered_data.remote(chunk_id) for chunk_id in chunk_ids]
 

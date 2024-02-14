@@ -33,17 +33,13 @@ def ray_q3(segment: str, customer: pd.DataFrame, orders: pd.DataFrame, lineitem:
     num_chunks = 4
     chunk_size = len(filtered_data) // num_chunks
     chunks = [filtered_data[i*chunk_size:(i+1)*chunk_size] for i in range(num_chunks)]
-    chunks.append(filtered_data[num_chunks*chunk_size:])  # Include any remaining rows in the last chunk
-
-    ray.init()
-
+    chunks.append(filtered_data[num_chunks*chunk_size:])
     chunk_ids = [ray.put(chunk) for chunk in chunks]
     grouped_data = [group_data.remote(chunk_id) for chunk_id in chunk_ids]
 
     grouped_data = ray.get(grouped_data)
     grouped_data = pd.concat(grouped_data, ignore_index=True)
     sorted_data = grouped_data.sort_values(by=['revenue', 'o_orderdate'], ascending=[False, True]).head(10)
-    ray.shutdown()
     return sorted_data
     #end of your codes
 
